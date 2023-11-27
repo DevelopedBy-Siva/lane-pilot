@@ -93,27 +93,33 @@ def calculate_average_coordinates(image, lines):
     return np.array([left_lane_coordinates, right_lane_coordinates])
 
 
-original_img = cv2.imread("lane.jpg")
-lane_image = np.copy(original_img)
+lane_video = cv2.VideoCapture("lane.mp4")
+while lane_video.isOpened():
+    _, frame = lane_video.read()
+    if frame is None:
+        break
+    # Canny edge detected output
+    canny_output = find_edges_with_canny(frame)
 
-# Canny edge detected output
-canny_output = find_edges_with_canny(lane_image)
+    # Mask canny image
+    isolated_region = apply_region_of_interest(canny_output)
 
-# Mask canny image
-isolated_region = apply_region_of_interest(canny_output)
+    # Using Hough Line Transform to detect lines in an image.
+    detected_lines = cv2.HoughLinesP(isolated_region, 2, np.pi / 180, 100, np.array([]), minLineLength=40, maxLineGap=5)
 
-# Using Hough Line Transform to detect lines in an image.
-detected_lines = cv2.HoughLinesP(isolated_region, 2, np.pi / 180, 100, np.array([]), minLineLength=40, maxLineGap=5)
+    # Averaging the slopes and intercepts of the lines
+    averaged_lane_coordinates = calculate_average_coordinates(frame, detected_lines)
 
-# Averaging the slopes and intercepts of the lines
-averaged_lane_coordinates = calculate_average_coordinates(lane_image, detected_lines)
+    # Draw lines on the image
+    line_output_image = draw_hough_lines(frame, averaged_lane_coordinates)
 
-# Draw lines on the image
-line_output_image = draw_hough_lines(lane_image, averaged_lane_coordinates)
+    # Combine the original lane image with the image containing detected lines
+    blended_image = cv2.addWeighted(frame, 0.8, line_output_image, 1, 1)
 
-# Combine the original lane image with the image containing detected lines
-blended_image = cv2.addWeighted(lane_image, 0.8, line_output_image, 1, 1)
+    # Show result
+    cv2.imshow('Lane Detection', blended_image)
+    if cv2.waitKey(1) == ord('q'):
+        break
 
-# Show result
-cv2.imshow('Lane', blended_image)
-cv2.waitKey(0)
+lane_video.release()
+cv2.destroyAllWindows()
